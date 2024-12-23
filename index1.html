@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Care for Your Skin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: rgba(39, 64, 226, 0.214);
+            font-family: 'Roboto', sans-serif;
+            color: #333;
+        }
+        .main_card {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px;
+        }
+        .card1, .card2, .card3 {
+            background-color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            width: 30%;
+        }
+        .card h3 {
+            text-align: center;
+        }
+        .chart-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #4facfe;
+            color: white;
+            border-top: 3px solid #00f2fe;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Care for Your Skin</a>
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <a class="nav-link" href="#">Identifying Skin Care Products</a>
+            </li>
+        </ul>
+    </nav>
+
+    <main>
+        <div class="main_card">
+            <!-- Live Data Section -->
+            <div class="card1">
+                <h3>Live Data</h3>
+                <div id="liveDataContainer">
+                    <!-- Dynamic content will be added here -->
+                </div>
+            </div>
+
+            <!-- Alerts Section -->
+            <div class="card3">
+                <h3>Alerts</h3>
+                <div id="alertsContainer">
+                    <!-- Dynamic alerts will be added here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Graph Section -->
+        <div class="chart-container">
+            <h3>Live Graph</h3>
+            <div id="chartsContainer"></div>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2024 Care for Your Skin. Powered by The Achievers API.
+    </footer>
+
+    <script>
+        const unitsMap = {
+            "ColorSensor": "RGB value",
+            "MoistureSensor": "%"
+        };
+
+        // Fetch and update live data for the sensors
+        async function updateLiveData() {
+            try {
+                const response = await fetch('https://the-achievers-api.onrender.com/get-data');
+                const data = await response.json();
+
+                const liveDataContainer = document.getElementById('liveDataContainer');
+                liveDataContainer.innerHTML = ''; // Clear previous content
+
+                data.forEach(item => {
+                    const label = item.label;
+                    const value = item.value;
+                    const unit = unitsMap[label] || "";
+
+                    const p = document.createElement('p');
+                    p.className = 'mb-1';
+                    p.innerHTML = `<strong>${label}:</strong> <span>${value} ${unit}</span>`;
+                    liveDataContainer.appendChild(p);
+                });
+            } catch (error) {
+                console.error('Error updating live data:', error);
+            }
+        }
+
+        // Update live data periodically
+        setInterval(updateLiveData, 5000); // Fetch and update every 5 seconds
+        updateLiveData(); // Initial update
+
+        // Function to update alerts dynamically
+        async function updateAlerts() {
+            try {
+                const response = await fetch('https://the-achievers-api.onrender.com/get-alerts');
+                const alerts = await response.json();
+
+                const alertsContainer = document.getElementById('alertsContainer');
+                alertsContainer.innerHTML = ''; // Clear previous alerts
+
+                alerts.forEach(alert => {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = `alert alert-${alert.type} mb-2`;
+
+                    const alertTime = new Date(alert.timestamp).toLocaleTimeString();
+                    alertDiv.innerHTML = `<strong>${alert.message}</strong> <span class="text-muted">(${alertTime})</span>`;
+                    alertsContainer.appendChild(alertDiv);
+                });
+
+                if (alerts.length === 0) {
+                    const noAlertsDiv = document.createElement('div');
+                    noAlertsDiv.className = 'alert alert-info';
+                    noAlertsDiv.textContent = 'No alerts at the moment.';
+                    alertsContainer.appendChild(noAlertsDiv);
+                }
+            } catch (error) {
+                console.error('Error updating alerts:', error);
+            }
+        }
+
+        // Periodically update alerts
+        setInterval(updateAlerts, 5000); // Update alerts every 5 seconds
+        updateAlerts(); // Initial fetch
+
+        // Fetch and update live graphs dynamically for the sensors
+        async function fetchDataAndCreateOrUpdateCharts() {
+            try {
+                const response = await fetch('https://the-achievers-api.onrender.com/get-data');
+                const data = await response.json();
+
+                const groupedData = {};
+                data.forEach(item => {
+                    const label = item.label;
+                    const value = item.value;
+                    const timestamp = new Date(item.timestamp).toLocaleTimeString();
+
+                    if (!groupedData[label]) {
+                        groupedData[label] = { timestamps: [], values: [] };
+                    }
+                    groupedData[label].timestamps.push(timestamp);
+                    groupedData[label].values.push(value);
+                });
+
+                const container = document.getElementById('chartsContainer');
+
+                Object.keys(groupedData).forEach((label) => {
+                    const chartCard = document.createElement('div');
+                    chartCard.className = 'chart-container';
+
+                    const canvas = document.createElement('canvas');
+                    canvas.id = `chart-${label}`;
+                    chartCard.appendChild(canvas);
+                    container.appendChild(chartCard);
+
+                    const ctx = canvas.getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: groupedData[label].timestamps,
+                            datasets: [{
+                                label: `${label}`,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                data: groupedData[label].values
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: { title: { display: true, text: 'Time' } },
+                                y: { title: { display: true, text: label } }
+                            }
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('Error fetching or updating charts:', error);
+            }
+        }
+
+        // Initialize charts and set periodic updates
+        fetchDataAndCreateOrUpdateCharts();
+        setInterval(fetchDataAndCreateOrUpdateCharts, 5000);
+    </script>
+
+</body>
+</html>
